@@ -1,8 +1,8 @@
 pragma solidity ^0.4.11;
 
-contract DABToken  {
-    string public constant name = "DAB Token";
-    string public constant symbol = "DABT";
+contract ETDToken  {
+    string public constant name = "ETD Token";
+    string public constant symbol = "ETDT";
     uint public constant decimals = 18;
     uint256 _totalSupply = 600000000 * 10**decimals;
 
@@ -41,7 +41,7 @@ contract DABToken  {
     event Approval(address indexed _owner, address indexed _spender, uint256 _value);
 
     //constructor
-    function DABToken() {
+    function ETDToken() {
         founder = msg.sender;
         baseStartTime = block.timestamp;
     }
