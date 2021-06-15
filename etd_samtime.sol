@@ -109,15 +109,15 @@ contract ETDToken  {
 
         //2) calculate number of months passed since base start time;
         //uint monthDiff = (now - baseStartTime) / (30 days);
-        uint monthDiff = (now - baseStartTime) / (10 minutes);
+        uint dayDiff = (now - baseStartTime) / (1 days);
 
         //3) if it is over 10 months, free up everything.
-        if (monthDiff >= 10) {
+        if (dayDiff >= 180) {
             return balances[user];
         }
 
         //4) calculate amount of unrestricted within distributed amount.
-        uint unrestricted = distBalances[user] / 10 + distBalances[user] * monthDiff / 10;
+        uint unrestricted = distBalances[user] / 180 + distBalances[user] * dayDiff / 180;
         if (unrestricted > distBalances[user]) {
             unrestricted = distBalances[user];
         }
