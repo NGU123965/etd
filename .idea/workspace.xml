@@ -20,7 +20,7 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="73f99751-d086-4722-980d-ad0b29f3d0ce" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/Readme.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -92,13 +92,13 @@
       <screen x="0" y="0" width="1920" height="1080" />
     </state>
     <state x="69" y="180" key="SettingsEditor/0.0.1920.1080@0.0.1920.1080" timestamp="1623688548343" />
-    <state x="1032" y="276" key="Vcs.Push.Dialog.v2" timestamp="1623727402963">
+    <state x="1032" y="276" key="Vcs.Push.Dialog.v2" timestamp="1623756861373">
       <screen x="0" y="0" width="1920" height="1080" />
     </state>
-    <state x="1032" y="276" key="Vcs.Push.Dialog.v2/0.0.1920.1080@0.0.1920.1080" timestamp="1623727402963" />
-    <state x="1243" y="456" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2" timestamp="1623727398796">
+    <state x="1032" y="276" key="Vcs.Push.Dialog.v2/0.0.1920.1080@0.0.1920.1080" timestamp="1623756861373" />
+    <state x="1243" y="456" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2" timestamp="1623756849582">
       <screen x="0" y="0" width="1920" height="1080" />
     </state>
-    <state x="1243" y="456" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2/0.0.1920.1080@0.0.1920.1080" timestamp="1623727398796" />
+    <state x="1243" y="456" key="com.intellij.openapi.vcs.update.UpdateOrStatusOptionsDialogupdate-v2/0.0.1920.1080@0.0.1920.1080" timestamp="1623756849582" />
   </component>
 </project>
