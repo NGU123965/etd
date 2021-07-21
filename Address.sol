@@ -1,5 +1,7 @@
 pragma solidity ^0.5.8;
- 
+
+//判断地址类型(合约地址or账号地址)，限定地址调用合约功能(限定余额充足)
+
 library Address {
     function isContract(address account) internal view returns (bool) {
         
