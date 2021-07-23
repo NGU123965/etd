@@ -7,36 +7,72 @@ contract Pledge {
     using SafeMath for uint256;
     using SafeERC20 for ERC20;
  
+    //合约拥有者账号地址
     address private owner;
+
+    //收益分配者账号地址，仅该地址有权进行收益的分配
     address private profitor;
+
+    //抵押合约功能状态，当为true时才可进行抵押
     bool _isDIS = false;
  
     mapping(address => PledgeOrder) _orders;
     mapping(address => uint256) _takeProfitTime;
  
+    //用于分配收益的ERC20资产
     ERC20 _Token;
+
+    //用于标记用户地址的抵押状态
     KeyFlag[] keys;
  
+    //抵押者地址数量
     uint256 size;
+
+    //最大抵押额度(底层代币)
     uint256 _maxPledgeAmount; 
+
+    //最大挖矿额度(ERC20收益分配)
     uint256 _maxMiningAmount;
+
+    //剩余挖矿额度
     uint256 _leftMiningAmount;
+
+    //单次最少抵押额度
     uint256 _minAmount;
+
+    //已抵押总额度
     uint256 _totalPledegAmount;
+
+    //单次最大分配额度
     uint256 _maxPreMiningAmount;
+
+    //开始时间与结束时间，单位秒
     uint256 _startTime;
     uint256 _endTime;
+
+    //每次收益提取比例
     uint256 _precentUp=100;
     uint256 _precentDown=100;
  
+    //标记抵押用户状态
     struct PledgeOrder {
+        //抵押状态
         bool isExist;
+
+        //抵押额度
         uint256 token;
+
+        //收益额度
         uint256 profitToken;
+
+        //最近一次提取收益时间
         uint256 time;
+        
+        //抵押地址序号
         uint256 index;
     }
- 
+
+    //标记用户地址的抵押状态
     struct KeyFlag {
         address key;
         bool isExist;
@@ -65,7 +101,8 @@ contract Pledge {
         _endTime = endTime;
         _leftMiningAmount = maxMiningAmount;
     }
- 
+
+    //抵押函数
     function pledgeToken() public payable{
         require(address(msg.sender) == address(tx.origin), "no contract");
         require(_isDIS, "is disable");
@@ -85,7 +122,8 @@ contract Pledge {
         }
         _totalPledegAmount=_totalPledegAmount.add(msg.value);
     }
- 
+
+    //检测到未抵押过的用户则进行档案记录   
     function createOrder(uint256 trcAmount,uint256 index) private {
         _orders[msg.sender]=PledgeOrder(
             true,
@@ -95,7 +133,8 @@ contract Pledge {
             index
         );
     }
- 
+
+    //收益分配
     function profit() public onlyProfitor{
         require(_leftMiningAmount>0, "less token");
         require(_totalPledegAmount>0, "no pledge");
@@ -112,6 +151,7 @@ contract Pledge {
         _leftMiningAmount=_leftMiningAmount.sub(preToken);
     }
  
+    //收益提取
     function takeProfit() public {
         require(address(msg.sender) == address(tx.origin), "no contract");
         require(_orders[msg.sender].profitToken>0,"less token");
@@ -125,6 +165,7 @@ contract Pledge {
         _Token.safeTransfer(address(msg.sender),takeToken);
     }
  
+    //本金提取
     function takeToken(uint256 amount) public {
         require(address(msg.sender) == address(tx.origin), "no contract");
         PledgeOrder storage order=_orders[msg.sender];
@@ -162,23 +203,27 @@ contract Pledge {
         addr.transfer(takeAmount);
     }
  
+    //获取用户抵押本金余额
     function getPledgeToken(address tokenAddress) public view returns(uint256) {
         require(address(msg.sender) == address(tx.origin), "no contract");
         PledgeOrder memory order=_orders[tokenAddress];
         return order.token;
     }
  
+    //获取用户收益余额
     function getProfitToken(address tokenAddress) public view returns(uint256) {
         require(address(msg.sender) == address(tx.origin), "no contract");
         PledgeOrder memory order=_orders[tokenAddress];
         return order.profitToken;
     }
  
+    //获取当前抵押总额
     function getTotalPledge() public view returns(uint256) {
         require(address(msg.sender) == address(tx.origin), "no contract");
         return _totalPledegAmount;
     }
  
+    //转换地址，允许地址接收资产
     function getPayable(address tokenAddress) private pure returns (address payable) {
         return address(uint168(tokenAddress));
     }
@@ -186,7 +231,8 @@ contract Pledge {
     function getTakeProfitTime(address tokenAddress) public view returns(uint256) {
         return _takeProfitTime[tokenAddress];
     }
- 
+    
+    //设置开始状态
     function changeIsDIS(bool flag) public onlyOwner {
         _isDIS= flag;
     }
