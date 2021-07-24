@@ -2,6 +2,7 @@ pragma solidity 0.5.8;
  
 import "./SafeMath.sol";
 import "./SafeERC20.sol";
+import "./IERC20.sol";
  
 contract Pledge {
     using SafeMath for uint256;

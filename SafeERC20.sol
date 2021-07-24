@@ -2,6 +2,7 @@ pragma solidity ^0.5.8;
  
 import "./Address.sol";
 import "./SafeMath.sol";
+import "./IERC20.sol";
 
 //标准ERC20接口
 library SafeERC20 {
