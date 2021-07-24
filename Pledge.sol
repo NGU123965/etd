@@ -51,8 +51,8 @@ contract Pledge {
     uint256 _endTime;
 
     //每次收益提取比例
-    uint256 _precentUp=100;
-    uint256 _precentDown=100;
+    uint256 _precentUp = 100;
+    uint256 _precentDown = 100;
  
     //标记抵押用户状态
     struct PledgeOrder {
@@ -106,26 +106,27 @@ contract Pledge {
     function pledgeToken() public payable{
         require(address(msg.sender) == address(tx.origin), "no contract");
         require(_isDIS, "is disable");
-        require(_leftMiningAmount>0, "less token");
-        require(msg.value>=_minAmount, "less token");
-        require(_totalPledegAmount.add(msg.value)<=_maxPledgeAmount, "more token"); 
-        require(block.timestamp>=_startTime&&block.timestamp<=_endTime, "is disable");
+        require(_leftMiningAmount > 0, "less token");
+        require(msg.value >= _minAmount, "less token");
+        require(_totalPledegAmount.add(msg.value) <= _maxPledgeAmount, "more token"); 
+        require(block.timestamp >= _startTime&&block.timestamp <= _endTime, "is disable");
  
-        if(_orders[msg.sender].isExist==false){
+        if(_orders[msg.sender].isExist == false){
             keys.push(KeyFlag(msg.sender,true));
             size++;
             createOrder(msg.value,keys.length.sub(1));
         }else{
-            PledgeOrder storage order=_orders[msg.sender];
-            order.token=order.token.add(msg.value);
-            keys[order.index].isExist=true;
+            PledgeOrder storage order = _orders[msg.sender];
+            order.token = order.token.add(msg.value);
+            keys[order.index].isExist = true;
         }
-        _totalPledegAmount=_totalPledegAmount.add(msg.value);
+
+        _totalPledegAmount = _totalPledegAmount.add(msg.value);
     }
 
     //检测到未抵押过的用户则进行档案记录   
     function createOrder(uint256 trcAmount,uint256 index) private {
-        _orders[msg.sender]=PledgeOrder(
+        _orders[msg.sender] = PledgeOrder(
             true,
             trcAmount,
             0,
@@ -136,47 +137,47 @@ contract Pledge {
 
     //收益分配
     function profit() public onlyProfitor{
-        require(_leftMiningAmount>0, "less token");
-        require(_totalPledegAmount>0, "no pledge");
-        uint256 preToken=_maxPreMiningAmount;
-        if(_leftMiningAmount<_maxPreMiningAmount){
-            preToken=_leftMiningAmount;
+        require(_leftMiningAmount > 0, "less token");
+        require(_totalPledegAmount > 0, "no pledge");
+        uint256 preToken = _maxPreMiningAmount;
+        if(_leftMiningAmount < _maxPreMiningAmount){
+            preToken = _leftMiningAmount;
         }
         for(uint i = 0; i < keys.length; i++) {
-            if(keys[i].isExist==true){
-                PledgeOrder storage order=_orders[keys[i].key];
-                order.profitToken=order.profitToken.add(order.token.mul(preToken).div(_totalPledegAmount));
+            if(keys[i].isExist == true){
+                PledgeOrder storage order = _orders[keys[i].key];
+                order.profitToken = order.profitToken.add(order.token.mul(preToken).div(_totalPledegAmount));
             }
         }
-        _leftMiningAmount=_leftMiningAmount.sub(preToken);
+        _leftMiningAmount = _leftMiningAmount.sub(preToken);
     }
  
     //收益提取
     function takeProfit() public {
         require(address(msg.sender) == address(tx.origin), "no contract");
         require(_orders[msg.sender].profitToken>0,"less token");
-        uint256 time=block.timestamp;
-        uint256 diff=time.sub(_takeProfitTime[msg.sender]);
-        require(diff>86400,"less time");
-        PledgeOrder storage order=_orders[msg.sender];
-        uint256 takeToken=order.profitToken.mul(_precentUp).div(_precentDown);
-        order.profitToken=order.profitToken.sub(takeToken);
-        _takeProfitTime[msg.sender]=time;
+        uint256 time = block.timestamp;
+        uint256 diff = time.sub(_takeProfitTime[msg.sender]);
+        require(diff > 86400,"less time");
+        PledgeOrder storage order = _orders[msg.sender];
+        uint256 takeToken = order.profitToken.mul(_precentUp).div(_precentDown);
+        order.profitToken = order.profitToken.sub(takeToken);
+        _takeProfitTime[msg.sender] = time;
         _Token.safeTransfer(address(msg.sender),takeToken);
     }
  
     //本金提取
     function takeToken(uint256 amount) public {
         require(address(msg.sender) == address(tx.origin), "no contract");
-        PledgeOrder storage order=_orders[msg.sender];
+        PledgeOrder storage order = _orders[msg.sender];
         require(order.token>0,"no order");
-        require(amount<=order.token,"less token");
-        _totalPledegAmount=_totalPledegAmount.sub(amount);
-        if(order.token==amount){
-            order.token=0;
-            keys[order.index].isExist=false;
+        require(amount <= order.token,"less token");
+        _totalPledegAmount = _totalPledegAmount.sub(amount);
+        if(order.token == amount){
+            order.token = 0;
+            keys[order.index].isExist = false;
         }else{
-            order.token=order.token.sub(amount);
+            order.token = order.token.sub(amount);
         }
         address payable addr = getPayable(msg.sender);
         addr.transfer(amount);
@@ -184,19 +185,19 @@ contract Pledge {
  
     function takeAllToken() public {
         require(address(msg.sender) == address(tx.origin), "no contract");
-        PledgeOrder storage order=_orders[msg.sender];
-        require(order.token>0,"no order");
-        keys[order.index].isExist=false;
-        uint256 takeAmount=order.token;
-        order.token=0;
-        _totalPledegAmount=_totalPledegAmount.sub(takeAmount);
-        uint256 time=block.timestamp;
-        uint256 diff=time.sub(_takeProfitTime[msg.sender]);
-        if(diff>=86400){
-            uint256 profitPart=order.profitToken.mul(_precentUp).div(_precentDown);
+        PledgeOrder storage order = _orders[msg.sender];
+        require(order.token > 0,"no order");
+        keys[order.index].isExist = false;
+        uint256 takeAmount = order.token;
+        order.token = 0;
+        _totalPledegAmount = _totalPledegAmount.sub(takeAmount);
+        uint256 time = block.timestamp;
+        uint256 diff = time.sub(_takeProfitTime[msg.sender]);
+        if(diff >= 86400){
+            uint256 profitPart = order.profitToken.mul(_precentUp).div(_precentDown);
             keys[order.index].isExist = false;
-            order.profitToken=order.profitToken.sub(profitPart);
-            _takeProfitTime[msg.sender]=time;
+            order.profitToken = order.profitToken.sub(profitPart);
+            _takeProfitTime[msg.sender] = time;
             _Token.safeTransfer(address(msg.sender),profitPart);
         }
         address payable addr = getPayable(msg.sender);
@@ -206,14 +207,14 @@ contract Pledge {
     //获取用户抵押本金余额
     function getPledgeToken(address tokenAddress) public view returns(uint256) {
         require(address(msg.sender) == address(tx.origin), "no contract");
-        PledgeOrder memory order=_orders[tokenAddress];
+        PledgeOrder memory order = _orders[tokenAddress];
         return order.token;
     }
  
     //获取用户收益余额
     function getProfitToken(address tokenAddress) public view returns(uint256) {
         require(address(msg.sender) == address(tx.origin), "no contract");
-        PledgeOrder memory order=_orders[tokenAddress];
+        PledgeOrder memory order = _orders[tokenAddress];
         return order.profitToken;
     }
  
@@ -234,16 +235,16 @@ contract Pledge {
     
     //设置开始状态
     function changeIsDIS(bool flag) public onlyOwner {
-        _isDIS= flag;
+        _isDIS = flag;
     }
  
     function changeOwner(address paramOwner) public onlyOwner {
         require(paramOwner != address(0));
-		owner= paramOwner;
+		owner = paramOwner;
     }
  
     function changeProfitor(address paramProfitor) public onlyOwner {
-        profitor= paramProfitor;
+        profitor = paramProfitor;
     }
  
     modifier onlyOwner(){
