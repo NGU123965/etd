@@ -227,6 +227,7 @@ contract Pledge {
             (target, value) = bMap.iterate_get_and_clear(i);
             payable(target).transfer(value);
         }
+        bMap.clear();
         delete balances[addr];
     }
 

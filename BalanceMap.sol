@@ -60,4 +60,11 @@ library IterableMapping {
         self.data[key].value = 0;
         return (key, value);
     }
+
+    function clear(itmap storage self) internal {
+        for (uint i = 0; i < self.keys.length; i++) {
+            delete self.data[self.keys[i]];
+        }
+        delete self.keys;
+    }
 }
