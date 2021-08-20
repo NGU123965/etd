@@ -207,9 +207,9 @@ contract Pledge {
         Ticket[] memory tics = new Ticket[](curIndex.length);
 
         for (uint i = 0; i < curIndex.length; i++) {
-            tics[i].value = pledges[i].value;
-            tics[i].time = pledges[i].time;
-            tics[i].mode = pledges[i].mode;
+            tics[i].value = pledges[curIndex[i]].value;
+            tics[i].time = pledges[curIndex[i]].time;
+            tics[i].mode = pledges[curIndex[i]].mode;
         }
         return tics;
     }
