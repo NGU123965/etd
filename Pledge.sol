@@ -1,309 +1,250 @@
-pragma solidity 0.5.8;
- 
-import "./SafeMath.sol";
-import "./SafeERC20.sol";
-import "./IERC20.sol";
- 
+pragma solidity >=0.7.0 <0.9.0;
+
+import "./BalanceMap.sol";
+
 contract Pledge {
-    using SafeMath for uint256;
-    using SafeERC20 for ERC20;
- 
+    using IterableMapping for itmap;
+
     //合约拥有者账号地址
     address private owner;
+    mapping(address => itmap) balances;
+    mapping(address => Ticket[]) orders;
+    mapping(address => uint[]) pledgeIndex;
+    PledgeOrder[] pledges;
 
-    //收益分配者账号地址，仅该地址有权进行收益的分配
-    address private profitor;
+    bool _enabled = true;
 
-    //抵押合约功能状态，当为true时才可进行抵押
-    bool _isDIS = false;
- 
-    mapping(address => PledgeOrder) _orders;
-    mapping(address => uint256) _takeProfitTime;
- 
-    //用于分配收益的ERC20资产
-    ERC20 _Token;
+    //抵押订单
+    struct Ticket {
+        //抵押额度(wei)
+        uint value;
+        //抵押开始时间(s)
+        uint64 time;
+        //抵押模式
+        uint64 mode;
+    }
 
-    //用于标记用户地址的抵押状态
-    KeyFlag[] keys;
- 
-    //抵押者地址数量
-    uint256 size;
-
-    //最大抵押额度(底层代币)
-    uint256 _maxPledgeAmount; 
-
-    //最大挖矿额度(ERC20收益分配)
-    uint256 _maxMiningAmount;
-
-    //剩余挖矿额度
-    uint256 _leftMiningAmount;
-
-    //单次最少抵押额度
-    uint256 _minAmount;
-
-    //已抵押总额度
-    uint256 _totalPledegAmount;
-
-    //单次最大分配额度
-    uint256 _maxPreMiningAmount;
-
-    //开始时间与结束时间，单位秒
-    uint256 _startTime;
-    uint256 _endTime;
-
-    //每次收益提取比例
-    uint256 _precentUp = 100;
-    uint256 _precentDown = 100;
- 
     //标记抵押用户状态
     struct PledgeOrder {
-        //抵押状态
-        bool isExist;
-
-        //抵押额度
-        uint256 token;
-
-        //收益额度
-        uint256 profitToken;
-
-        //最近一次提取收益时间
-        uint256 time;
-        
-        //抵押地址序号
-        uint256 index;
+        //转账地址
+        address target;
+        //抵押者地址
+        address pledger;
+        //抵押索引
+        uint index;
+        //抵押额度(wei)
+        uint value;
+        //剩余额度(wei)
+        uint balance;
+        //抵押持续时间(s)
+        uint64 time;
+        //抵押起始时间(s)
+        uint64 startTime;
+        //最近一次提取时间(s)
+        uint64 lastTime;
+        //抵押模式
+        uint64 mode;
     }
 
-    //标记用户地址的抵押状态
-    struct KeyFlag {
-        address key;
-        bool isExist;
-    }
- 
-    constructor (
-        address tokenAddress,
-        address paramProfitor,
-        uint256 maxPledgeAmount,
-        uint256 minAmount,
-        uint256 maxMiningAmount,
-        uint256 maxPreMiningAmount,
-        uint256 startTime,
-        uint256 endTime
-    ) 
-        public 
-    {
-        _Token = ERC20(tokenAddress);
+    constructor() {
         owner = msg.sender;
-        profitor = paramProfitor;
-        _maxPledgeAmount = maxPledgeAmount; 
-		_minAmount = minAmount;   
-        _maxMiningAmount = maxMiningAmount;
-        _maxPreMiningAmount = maxPreMiningAmount;
-        _startTime = startTime;
-        _endTime = endTime;
-        _leftMiningAmount = maxMiningAmount;
     }
 
-    //抵押函数
-    function pledgeToken() public payable{
+    //创建订单
+    function openO(address addr, uint value, uint64 time, uint64 mode) public onlyOwner {
+        require(value > 0, "value cannot be zero");
+        require(mode == 0 || mode == 1, "wrong mode");
+        require(time >= (30 days), "at least 30 days");
+
+        orders[addr].push(Ticket({
+        value : value,
+        time : time,
+        mode : mode
+        }));
+    }
+
+    function deposit(address pledger, address target, uint value, uint64 time, uint64 mode) private {
+        uint64 nowTime = uint64(block.timestamp);
+        uint gIndex = pledges.length;
+        uint pIndex = pledgeIndex[pledger].length;
+
+        pledges.push(PledgeOrder({
+        target : target,
+        pledger : pledger,
+        index : pIndex,
+        value : value,
+        balance : value,
+        time : time,
+        startTime : nowTime,
+        lastTime : nowTime,
+        mode : mode
+        }));
+
+        pledgeIndex[pledger].push(gIndex);
+    }
+
+    //直接抵押函数
+    function depositLinear(address addr, uint64 time, uint64 mode) public payable {
+        require(msg.value > 0, "value cannot be zero");
         require(address(msg.sender) == address(tx.origin), "no contract");
-        require(_isDIS, "is disable");
-        require(_leftMiningAmount > 0, "less token");
-        require(msg.value >= _minAmount, "less token");
-        require(_totalPledegAmount.add(msg.value) <= _maxPledgeAmount, "more token"); 
-        require(block.timestamp >= _startTime&&block.timestamp <= _endTime, "is disable");
- 
-        if(_orders[msg.sender].isExist == false){
-            keys.push(KeyFlag(msg.sender,true));
-            size++;
-            createOrder(msg.value,keys.length.sub(1));
-        }else{
-            PledgeOrder storage order = _orders[msg.sender];
-            order.token = order.token.add(msg.value);
-            keys[order.index].isExist = true;
-        }
+        require(_enabled, "is disabled");
+        require(mode == 0 || mode == 1, "wrong mode");
+        require(time >= (30 days), "at least 30 days");
 
-        _totalPledegAmount = _totalPledegAmount.add(msg.value);
+        deposit(msg.sender, addr, msg.value, time, mode);
     }
 
-    //检测到未抵押过的用户则进行档案记录   
-    function createOrder(uint256 trcAmount,uint256 index) private {
-        _orders[msg.sender] = PledgeOrder(
-            true,
-            trcAmount,
-            0,
-            block.timestamp,
-            index
-        );
-    }
+    //订单抵押函数
+    function depositLinearO(address addr, uint64 time, uint64 mode) public payable {
+        require(msg.value > 0, "value cannot be zero");
+        require(address(msg.sender) == address(tx.origin), "no contract");
+        require(mode == 0 || mode == 1, "wrong mode");
+        require(_enabled, "is disabled");
+        require(time >= (30 days), "at least 30 days");
 
-    //收益分配
-    function profit() public onlyProfitor{
-        require(_leftMiningAmount > 0, "less token");
-        require(_totalPledegAmount > 0, "no pledge");
-        uint256 preToken = _maxPreMiningAmount;
-        if(_leftMiningAmount < _maxPreMiningAmount){
-            preToken = _leftMiningAmount;
-        }
-        for(uint i = 0; i < keys.length; i++) {
-            if(keys[i].isExist == true){
-                PledgeOrder storage order = _orders[keys[i].key];
-                order.profitToken = order.profitToken.add(order.token.mul(preToken).div(_totalPledegAmount));
+        Ticket[] storage tickets = orders[msg.sender];
+        require(tickets.length > 0, "no ticket");
+
+        bool success = false;
+
+        for (uint i = 0; i < tickets.length; i++) {
+            if (tickets[i].value == msg.value && tickets[i].time == time && tickets[i].mode == mode) {
+                deposit(msg.sender, addr, msg.value, time, mode);
+                uint end = tickets.length - 1;
+                if (i < end) {
+                    tickets[i] = tickets[end];
+                }
+                tickets.pop();
+                success = true;
+                break;
             }
         }
-        _leftMiningAmount = _leftMiningAmount.sub(preToken);
-    }
- 
-    //收益提取
-    function takeProfit() public {
-        require(address(msg.sender) == address(tx.origin), "no contract");
-        require(_orders[msg.sender].profitToken>0,"less token");
-        uint256 time = block.timestamp;
-        uint256 diff = time.sub(_takeProfitTime[msg.sender]);
-        require(diff > 86400,"less time");
-        PledgeOrder storage order = _orders[msg.sender];
-        uint256 takeToken = order.profitToken.mul(_precentUp).div(_precentDown);
-        order.profitToken = order.profitToken.sub(takeToken);
-        _takeProfitTime[msg.sender] = time;
-        _Token.safeTransfer(address(msg.sender),takeToken);
-    }
- 
-    //本金提取
-    function takeToken(uint256 amount) public {
-        require(address(msg.sender) == address(tx.origin), "no contract");
-        PledgeOrder storage order = _orders[msg.sender];
-        require(order.token>0,"no order");
-        require(amount <= order.token,"less token");
-        _totalPledegAmount = _totalPledegAmount.sub(amount);
-        if(order.token == amount){
-            order.token = 0;
-            keys[order.index].isExist = false;
-        }else{
-            order.token = order.token.sub(amount);
+        if (success == false) {
+            revert("no matched ticket");
         }
-        address payable addr = getPayable(msg.sender);
-        addr.transfer(amount);
     }
- 
-    function takeAllToken() public {
-        require(address(msg.sender) == address(tx.origin), "no contract");
-        PledgeOrder storage order = _orders[msg.sender];
-        require(order.token > 0,"no order");
-        keys[order.index].isExist = false;
-        uint256 takeAmount = order.token;
-        order.token = 0;
-        _totalPledegAmount = _totalPledegAmount.sub(takeAmount);
-        uint256 time = block.timestamp;
-        uint256 diff = time.sub(_takeProfitTime[msg.sender]);
-        if(diff >= 86400){
-            uint256 profitPart = order.profitToken.mul(_precentUp).div(_precentDown);
-            keys[order.index].isExist = false;
-            order.profitToken = order.profitToken.sub(profitPart);
-            _takeProfitTime[msg.sender] = time;
-            _Token.safeTransfer(address(msg.sender),profitPart);
+
+    function transfer(address pledger, address target, uint amount) private {
+        itmap storage bMap = balances[pledger];
+        uint curBalance = bMap.data[target].value;
+        bMap.insert(target, amount + curBalance);
+    }
+
+    function settleOne(uint index) private returns (bool) {
+        PledgeOrder storage curPledge = pledges[index];
+        //抵押已到期
+        if (block.timestamp >= curPledge.startTime + curPledge.time) {
+            uint amount = curPledge.balance;
+            curPledge.balance = 0;
+            transfer(curPledge.pledger, curPledge.target, amount);
+            deletePledge(index);
+            return true;
         }
-        address payable addr = getPayable(msg.sender);
-        addr.transfer(takeAmount);
+
+        //按时间释放
+        if (curPledge.mode == 1) {
+            uint time = block.timestamp;
+            uint share = curPledge.time / (30 days);
+            uint curShare = (time - uint(curPledge.lastTime)) / (30 days);
+            if (curShare > 0) {
+                uint amount = curPledge.value * curShare / share;
+                curPledge.balance -= amount;
+                curPledge.lastTime += uint64(curShare) * (30 days);
+                transfer(curPledge.pledger, curPledge.target, amount);
+            }
+        }
+        return false;
     }
- 
-    //获取用户抵押本金余额
-    function getPledgeToken(address tokenAddress) public view returns(uint256) {
+
+    function deletePledge(uint index) private {
+        address pledger = pledges[index].pledger;
+        uint[] storage allIndex = pledgeIndex[pledger];
+
+        //删除抵押者对该笔抵押的索引
+        uint pIndex = pledges[index].index;
+        uint end = allIndex.length - 1;
+        if (pIndex < end) {
+            uint last = allIndex[end];
+            allIndex[pIndex] = last;
+            pledges[last].index = pIndex;
+        }
+        allIndex.pop();
+
+        //删除该笔抵押
+        end = pledges.length - 1;
+        if (index < end) {
+            pledges[index] = pledges[end];
+        }
+        pledges.pop();
+    }
+
+    //结算指定地址抵押
+    function settle(address addr) public {
         require(address(msg.sender) == address(tx.origin), "no contract");
-        PledgeOrder memory order = _orders[tokenAddress];
-        return order.token;
+
+        uint[] storage allIndex = pledgeIndex[addr];
+        for (uint i = allIndex.length; i >= 1; i--) {
+            settleOne(allIndex[i - 1]);
+        }
     }
- 
-    //获取用户收益余额
-    function getProfitToken(address tokenAddress) public view returns(uint256) {
+
+    //结算全部抵押
+    function settleAll() public onlyOwner {
+        for (uint i = pledges.length; i >= 1; i--) {
+            settleOne(i - 1);
+        }
+    }
+
+    //获取用户抵押详情
+    function checkReceipt(address addr) public view returns (Ticket[] memory) {
         require(address(msg.sender) == address(tx.origin), "no contract");
-        PledgeOrder memory order = _orders[tokenAddress];
-        return order.profitToken;
+        uint[] storage curIndex = pledgeIndex[addr];
+        Ticket[] memory tics = new Ticket[](curIndex.length);
+
+        for (uint i = 0; i < curIndex.length; i++) {
+            tics[i].value = pledges[i].value;
+            tics[i].time = pledges[i].time;
+            tics[i].mode = pledges[i].mode;
+        }
+        return tics;
     }
- 
-    //获取当前抵押总额
-    function getTotalPledge() public view returns(uint256) {
+
+    //提取全部已结算代币
+    function withdraw(address addr) public {
+        require(address(msg.sender) == addr, "no authority");
         require(address(msg.sender) == address(tx.origin), "no contract");
-        return _totalPledegAmount;
+
+        itmap storage bMap = balances[addr];
+
+        for (uint i = 1; bMap.iterate_valid(i); i++) {
+            address target;
+            uint value;
+            (target, value) = bMap.iterate_get_and_clear(i);
+            payable(target).transfer(value);
+        }
+        delete balances[addr];
     }
- 
-    //转换地址，允许地址接收资产
-    function getPayable(address tokenAddress) private pure returns (address payable) {
-        return address(uint168(tokenAddress));
-    }
- 
-    function getTakeProfitTime(address tokenAddress) public view returns(uint256) {
-        return _takeProfitTime[tokenAddress];
-    }
-    
+
     //设置开始状态
-    function changeIsDIS(bool flag) public onlyOwner {
-        _isDIS = flag;
+    function changeStatus(bool flag) public onlyOwner {
+        _enabled = flag;
     }
- 
+
     function changeOwner(address paramOwner) public onlyOwner {
         require(paramOwner != address(0));
-		owner = paramOwner;
+        owner = paramOwner;
     }
- 
-    function changeProfitor(address paramProfitor) public onlyOwner {
-        profitor = paramProfitor;
-    }
- 
+
     modifier onlyOwner(){
         require(msg.sender == owner);
         _;
     }
- 
-    modifier onlyProfitor(){
-        require(msg.sender == profitor);
-    _;
-    }
- 
+
     function getOwner() public view returns (address) {
         return owner;
     }
- 
-    function getProfitor() public view returns (address) {
-        return profitor;
+
+    function isEnabled() public view returns (bool) {
+        return _enabled;
     }
- 
-    function getsize() public view returns (uint256) {
-        return size;
-    }
- 
-    function maxPledgeAmount() public view returns (uint256) {
-        return _maxPledgeAmount;
-    }
- 
-    function maxMiningAmount() public view returns (uint256) {
-        return _maxMiningAmount;
-    }
- 
-    function leftMiningAmount() public view returns (uint256) {
-        return _leftMiningAmount;
-    }
- 
-    function minAmount() public view returns (uint256) {
-        return _minAmount;
-    }
- 
-    function maxPreMiningAmount() public view returns (uint256) {
-        return _maxPreMiningAmount;
-    }
- 
-    function startTime() public view returns (uint256) {
-        return _startTime;
-    }
- 
-    function endTime() public view returns (uint256) {
-        return _endTime;
-    }
- 
-    function nowTime() public view returns (uint256) {
-        return block.timestamp;
-    }
- 
-    function isDIS() public view returns (bool) {
-        return _isDIS;
-    }
- 
 }
