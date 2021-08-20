@@ -174,6 +174,11 @@ contract Pledge {
         end = pledges.length - 1;
         if (index < end) {
             pledges[index] = pledges[end];
+            //交换后修正索引记录
+            pledger = pledges[index].pledger;
+            pIndex = pledges[index].index;
+            allIndex = pledgeIndex[pledger];
+            allIndex[pIndex] = index;
         }
         pledges.pop();
     }
